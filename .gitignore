@@ -1,0 +1,7 @@
+.vs/
+_ReSharper*/
+packages/
+bin/
+obj/
+_fridge/
+*.user
