@@ -23,8 +23,7 @@ namespace Dig.Renderer
 		public readonly int Count;
 		public readonly int Stride;
 
-		protected GPUBuffer(
-			DXContext ctx, int count, BindFlags flags, bool dynamic, ResourceOptionFlags options = default)
+		protected GPUBuffer(DXContext ctx, int count, BindFlags flags, bool dynamic, ResourceOptionFlags options = default)
 		{
 			Parent = ctx;
 			Stride = Marshal.SizeOf<T>();
@@ -44,6 +43,12 @@ namespace Dig.Renderer
 
 			Buffer = new D3D11Buffer(Parent.Device, desc);
 			_mapGuard = new Guard(Unmap);
+		}
+
+		protected GPUBuffer(DXContext ctx, Span<T> data, BindFlags flags, bool dynamic, ResourceOptionFlags options = default)
+			: this(ctx, data.Length, flags, dynamic, options)
+		{
+			Upload(data);
 		}
 
 		public unsafe void Upload(Span<T> data)
