@@ -56,8 +56,7 @@ namespace Dig
 		private readonly DXContext _dx;
 		private readonly InputState _input;
 
-		private readonly VertexShader _vertexShader;
-		private readonly PixelShader _pixelShader;
+		private readonly Material _unlit;
 		private readonly VertexBuffer<SimpleVertex> _vertexBuffer;
 		private readonly IndexBuffer<SimpleTriangle> _indexBuffer;
 		private readonly ConstantBuffer<PerObject> _perObjectBuffer;
@@ -81,17 +80,10 @@ namespace Dig
 				new SimpleTriangle(0, 2, 3)
 			};
 
-			var shader = File.ReadAllText("Assets/Unlit.hlsl");
-			var vsCode = ShaderBytecode.Compile(shader, "VSMain", "vs_5_0", ShaderFlags.Debug, sourceFileName: "vertex-shader");
-			var psCode = ShaderBytecode.Compile(shader, "PSMain", "ps_5_0", ShaderFlags.Debug, sourceFileName: "pixel-shader");
+			_unlit = new Material(dx, "Unlit");
+			_unlit.DebugName = $"{nameof(Game)}.{nameof(_unlit)}";
 
-			_vertexShader = new VertexShader(_dx, vsCode);
-			_vertexShader.DebugName = $"{nameof(Game)}.{nameof(_vertexShader)}";
-
-			_pixelShader = new PixelShader(_dx, psCode);
-			_pixelShader.DebugName = $"{nameof(Game)}.{nameof(_pixelShader)}";
-
-			_vertexBuffer = new VertexBuffer<SimpleVertex>(_dx, _vertexShader, vertices, false);
+			_vertexBuffer = new VertexBuffer<SimpleVertex>(_dx, _unlit.VertexShader, vertices, false);
 			_vertexBuffer.DebugName = $"{nameof(Game)}.{nameof(_vertexBuffer)}";
 
 			_indexBuffer = new IndexBuffer<SimpleTriangle>(_dx, triangles, false);
@@ -104,8 +96,7 @@ namespace Dig
 		public void Dispose()
 		{
 			_vertexBuffer.Dispose();
-			_pixelShader.Dispose();
-			_vertexShader.Dispose();
+			_unlit.Dispose();
 		}
 
 		public void UpdateFixed(double dt)
@@ -143,8 +134,8 @@ namespace Dig
 			ia.PrimitiveTopology = PrimitiveTopology.TriangleList;
 			ia.SetVertexBuffers(0, _vertexBuffer.Binding());
 			ia.SetIndexBuffer(_indexBuffer.Buffer, Format.R32_UInt, 0);
-			vs.Set(_vertexShader.Shader);
-			ps.Set(_pixelShader.Shader);
+			vs.Set(_unlit.VertexShader.Shader);
+			ps.Set(_unlit.PixelShader.Shader);
 			vs.SetConstantBuffer(0, _perObjectBuffer.Buffer);
 
 			dx.Context.DrawIndexed(6, 0, 0);
