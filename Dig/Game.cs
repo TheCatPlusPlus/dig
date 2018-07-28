@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics.CodeAnalysis;
+using System.IO;
 using System.Runtime.InteropServices;
 
 using Dig.Input;
@@ -42,6 +43,13 @@ namespace Dig
 		}
 	}
 
+	[StructLayout(LayoutKind.Sequential)]
+	[SuppressMessage("ReSharper", "FieldCanBeMadeReadOnly.Global")]
+	public struct PerObject : IConstants
+	{
+		public Matrix Projection;
+	}
+
 	[SuppressMessage("ReSharper", "NotAccessedField.Local")]
 	public sealed class Game : IDisposable
 	{
@@ -52,43 +60,12 @@ namespace Dig
 		private readonly PixelShader _pixelShader;
 		private readonly VertexBuffer<SimpleVertex> _vertexBuffer;
 		private readonly IndexBuffer<SimpleTriangle> _indexBuffer;
+		private readonly ConstantBuffer<PerObject> _perObjectBuffer;
 
 		public Game(DXContext dx, InputState input)
 		{
 			_dx = dx;
 			_input = input;
-
-			var shader = @"
-struct VSInput
-{
-	float3 Position : Position;
-	float4 Color : Color;
-};
-
-struct VSOutput
-{
-	float4 Position : SV_POSITION;
-	float4 Color : Color;
-};
-
-VSOutput VSMain(VSInput input)
-{
-	VSOutput output;
-	output.Position = float4(input.Position.xyz, 1);
-	output.Color = input.Color;
-	return output;
-}
-
-float4 PSMain(VSOutput input) : SV_TARGET
-{
-	return input.Color;
-}
-";
-
-			var vsCode = ShaderBytecode.Compile(shader, "VSMain", "vs_5_0", ShaderFlags.Debug, sourceFileName: "vertex-shader");
-			var psCode = ShaderBytecode.Compile(shader, "PSMain", "ps_5_0", ShaderFlags.Debug, sourceFileName: "pixel-shader");
-			_vertexShader = new VertexShader(_dx, vsCode);
-			_pixelShader = new PixelShader(_dx, psCode);
 
 			var vertices = new[]
 			{
@@ -104,8 +81,24 @@ float4 PSMain(VSOutput input) : SV_TARGET
 				new SimpleTriangle(0, 2, 3)
 			};
 
+			var shader = File.ReadAllText("Assets/Unlit.hlsl");
+			var vsCode = ShaderBytecode.Compile(shader, "VSMain", "vs_5_0", ShaderFlags.Debug, sourceFileName: "vertex-shader");
+			var psCode = ShaderBytecode.Compile(shader, "PSMain", "ps_5_0", ShaderFlags.Debug, sourceFileName: "pixel-shader");
+
+			_vertexShader = new VertexShader(_dx, vsCode);
+			_vertexShader.DebugName = $"{nameof(Game)}.{nameof(_vertexShader)}";
+
+			_pixelShader = new PixelShader(_dx, psCode);
+			_pixelShader.DebugName = $"{nameof(Game)}.{nameof(_pixelShader)}";
+
 			_vertexBuffer = new VertexBuffer<SimpleVertex>(_dx, _vertexShader, vertices, false);
+			_vertexBuffer.DebugName = $"{nameof(Game)}.{nameof(_vertexBuffer)}";
+
 			_indexBuffer = new IndexBuffer<SimpleTriangle>(_dx, triangles, false);
+			_indexBuffer.DebugName = $"{nameof(Game)}.{nameof(_indexBuffer)}";
+
+			_perObjectBuffer = new ConstantBuffer<PerObject>(dx, false);
+			_perObjectBuffer.DebugName = $"{nameof(Game)}.{nameof(_perObjectBuffer)}";
 		}
 
 		public void Dispose()
@@ -129,12 +122,30 @@ float4 PSMain(VSOutput input) : SV_TARGET
 			var vs = dx.Context.VertexShader;
 			var ps = dx.Context.PixelShader;
 
+			var eye = new Vector3(0, 0, -5f);
+			var target = new Vector3(1f, 0, 0);
+			var up = new Vector3(0, 1, 0);
+			var model = Matrix.Identity;
+			var view = Matrix.LookAtLH(eye, target, up);
+			var projection = Matrix.PerspectiveFovLH(75, dx.AspectRatio, 0.03f, 50f);
+
+			var mvp = model * view * projection;
+			mvp.Transpose();
+
+			var perObject = new PerObject
+			{
+				Projection = mvp
+			};
+
+			_perObjectBuffer.Upload(ref perObject);
+
 			ia.InputLayout = _vertexBuffer.Layout;
 			ia.PrimitiveTopology = PrimitiveTopology.TriangleList;
 			ia.SetVertexBuffers(0, _vertexBuffer.Binding());
 			ia.SetIndexBuffer(_indexBuffer.Buffer, Format.R32_UInt, 0);
 			vs.Set(_vertexShader.Shader);
 			ps.Set(_pixelShader.Shader);
+			vs.SetConstantBuffer(0, _perObjectBuffer.Buffer);
 
 			dx.Context.DrawIndexed(6, 0, 0);
 		}

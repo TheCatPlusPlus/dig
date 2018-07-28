@@ -37,20 +37,21 @@ namespace Dig.Renderer
 
 		public DXContext()
 		{
-			const DeviceCreationFlags flags =
-				DeviceCreationFlags.BgraSupport | DeviceCreationFlags.Debug |
-				DeviceCreationFlags.SingleThreaded;
+			const DeviceCreationFlags flags = DeviceCreationFlags.BgraSupport | DeviceCreationFlags.Debug;
 
 			var device = new D3D11Device(DriverType.Hardware, flags, FeatureLevel.Level_12_1);
 			COM.Create(out Device, () => device);
+			Device.DebugName = $"{nameof(DXContext)}.{nameof(Device)}";
+
 			COM.Create(out Context, () => Device.ImmediateContext3);
+			Context.DebugName = $"{nameof(DXContext)}.{nameof(Context)}";
 
 			DeviceDXGI = Device.QueryInterface<DXGIDevice4>();
 			Adapter = DeviceDXGI.GetParent<DXGIAdapter4>();
 			Factory = Adapter.GetParent<DXGIFactory5>();
 			COM.Create(out Output, () => Adapter.GetOutput(0));
 
-			var factory2D = new D2D1Factory(FactoryType.SingleThreaded, DebugLevel.Information);
+			var factory2D = new D2D1Factory(FactoryType.MultiThreaded, DebugLevel.Information);
 			COM.Create(out Factory2D, () => factory2D);
 			Device2D = new D2D1Device5(Factory2D, DeviceDXGI);
 		}

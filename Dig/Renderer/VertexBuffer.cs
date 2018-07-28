@@ -4,10 +4,28 @@ using SharpDX.Direct3D11;
 
 namespace Dig.Renderer
 {
-	public sealed class VertexBuffer<T> : GPUBuffer<T>
+	public interface IVertex
+	{
+	}
+
+	public interface IVertexBuffer
+	{
+	}
+
+	public sealed class VertexBuffer<T> : GPUBuffer<T>, IVertexBuffer
 		where T : struct, IVertex
 	{
 		public readonly InputLayout Layout;
+
+		public override string DebugName
+		{
+			get => base.DebugName;
+			set
+			{
+				base.DebugName = value;
+				Layout.DebugName = $"{value}.{nameof(Layout)}";
+			}
+		}
 
 		public VertexBuffer(DXContext ctx, VertexShader shader, int count, bool dynamic)
 			: base(ctx, count, BindFlags.VertexBuffer, dynamic)

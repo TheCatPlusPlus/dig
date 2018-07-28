@@ -31,12 +31,7 @@ namespace Dig
 		{
 			_running = true;
 
-			var here = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
-			Kernel32.SetDefaultDllDirectories(Kernel32.LOAD_LIBRARY_SEARCH_DEFAULT_DIRS);
-			Kernel32.AddDllDirectory(here);
-
 			var input = new InputState();
-
 			using (var window = new Window(input))
 			using (var dx = new DXContext())
 			using (var dxWindow = new DXWindowContext(window, dx))

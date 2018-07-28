@@ -10,6 +10,12 @@ namespace Dig.Renderer
 		public readonly ShaderSignature Signature;
 		public readonly byte[] Bytecode;
 
+		public string DebugName
+		{
+			get => Shader.DebugName;
+			set => Shader.DebugName = value;
+		}
+
 		public VertexShader(DXContext ctx, byte[] bytecode)
 		{
 			Shader = new D3D11VertexShader(ctx.Device, bytecode);

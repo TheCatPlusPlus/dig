@@ -2,8 +2,6 @@ using System;
 
 using Dig.Utils.WinAPI;
 
-using JetBrains.Annotations;
-
 using SharpDX.Direct2D1;
 using SharpDX.Direct3D11;
 using SharpDX.DXGI;
@@ -33,7 +31,13 @@ namespace Dig.Renderer
 {
 	public sealed class DXWindowContext : IDisposable
 	{
+		public readonly DXContext Parent;
+
 		public readonly Window Window;
+		public readonly float AspectRatio;
+		public readonly int Width;
+		public readonly int Height;
+
 		public readonly D3D11DeviceContext4 Context;
 		public readonly D2D1DeviceContext5 Context2D;
 
@@ -44,7 +48,12 @@ namespace Dig.Renderer
 
 		public DXWindowContext(Window window, DXContext ctx)
 		{
+			Parent = ctx;
+
 			Window = window;
+			Width = window.Width;
+			Height = window.Height;
+			AspectRatio = (float)Width / Height;
 
 			var chainDesc = new SwapChainDescription1
 			{
@@ -62,10 +71,13 @@ namespace Dig.Renderer
 
 			var swapChain = new DXGISwapChain1(ctx.Factory, ctx.Device, window.Handle, ref chainDesc);
 			COM.Create(out SwapChain, () => swapChain);
+			SwapChain.DebugName = $"{nameof(DXWindowContext)}.{nameof(SwapChain)}";
 
 			using (var buffer = SwapChain.GetBackBuffer<D3D11Texture2D1>(0))
 			{
+				buffer.DebugName = $"{nameof(DXWindowContext)}.{nameof(SwapChain)}.BackBuffer";
 				RenderTargetView = new D3D11RenderTargetView1(ctx.Device, buffer);
+				RenderTargetView.DebugName = $"{nameof(DXWindowContext)}.{nameof(RenderTargetView)}";
 			}
 
 			Context = ctx.Context;
@@ -93,7 +105,10 @@ namespace Dig.Renderer
 			};
 
 			DepthBuffer = new D3D11Texture2D1(ctx.Device, depthDesc);
+			DepthBuffer.DebugName = $"{nameof(DXWindowContext)}.{nameof(DepthBuffer)}";
+
 			DepthView = new D3D11DepthStencilView(ctx.Device, DepthBuffer);
+			DepthView.DebugName = $"{nameof(DXWindowContext)}.{nameof(DepthView)}";
 		}
 
 		public void Dispose()

@@ -6,6 +6,12 @@ namespace Dig.Renderer
 	{
 		public readonly D3D11PixelShader Shader;
 
+		public string DebugName
+		{
+			get => Shader.DebugName;
+			set => Shader.DebugName = value;
+		}
+
 		public PixelShader(DXContext ctx, byte[] bytecode)
 		{
 			Shader = new D3D11PixelShader(ctx.Device, bytecode);

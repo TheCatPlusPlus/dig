@@ -19,6 +19,12 @@ namespace Dig.Renderer
 		public int Count { get; }
 		public int Stride { get; }
 
+		public virtual string DebugName
+		{
+			get => Buffer.DebugName;
+			set => Buffer.DebugName = value;
+		}
+
 		protected GPUBuffer(DXContext ctx, int count, BindFlags flags, bool dynamic, ResourceOptionFlags options = default)
 		{
 			Parent = ctx;

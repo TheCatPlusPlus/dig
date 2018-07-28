@@ -31,14 +31,15 @@ namespace Dig.Renderer
 			}
 		}
 
-		public static unsafe void Upload<T>(this IGPUResource<T> resource, Span<T> data)
+		public static unsafe void Upload<T>(
+			this IGPUResource<T> resource, Span<T> data, int subresource = 0, MapMode mode = MapMode.WriteDiscard, MapFlags flags = MapFlags.None)
 			where T : struct
 		{
 			Debug.Assert(data.Length <= resource.Count, "data.Length <= resource.Count");
 
 			if (resource.IsDynamic)
 			{
-				using (resource.Map(out var target))
+				using (resource.Map(out var target, subresource, mode, flags))
 				{
 					data.CopyTo(target);
 				}
@@ -48,11 +49,27 @@ namespace Dig.Renderer
 				var bytes = MemoryMarshal.AsBytes(data);
 				fixed (void* ptr = &bytes[0])
 				{
-					var box = new DataBox((IntPtr)ptr, 0, 0);
-					var region = new ResourceRegion(0, 0, 0, resource.ByteSize, 1, 1);
-					resource.Parent.Context.UpdateSubresource(box, resource.Resource, 0, region);
+					ResourceRegion? region = new ResourceRegion(0, 0, 0, resource.ByteSize, 1, 1);
+
+					// TODO this will probably be needed for textures
+					var rowPitch = 0;
+					var depthPitch = 0;
+
+					if (resource is IConstantBuffer)
+					{
+						Debug.Assert(data.Length == resource.Count, "data.Length == resource.Count (constant buffers must be updated in whole)");
+						region = null;
+					}
+
+					resource.Parent.Context.UpdateSubresource(resource.Resource, subresource, region, (IntPtr)ptr, rowPitch, depthPitch);
 				}
 			}
+		}
+
+		public static void Upload<T>(this IGPUResource<T> resource, ref T data)
+			where T : struct
+		{
+			resource.Upload(MemoryMarshal.CreateSpan(ref data, 1));
 		}
 
 		public static unsafe Mapping Map<T>(
