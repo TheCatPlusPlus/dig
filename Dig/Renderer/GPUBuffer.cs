@@ -1,27 +1,23 @@
 using System;
-using System.Diagnostics;
 using System.Runtime.InteropServices;
 
-using Dig.Utils;
-
-using SharpDX;
 using SharpDX.Direct3D11;
 
 using D3D11Buffer = SharpDX.Direct3D11.Buffer;
+using D3D11Resource = SharpDX.Direct3D11.Resource;
 
 namespace Dig.Renderer
 {
-	public class GPUBuffer<T> : IDisposable
+	public class GPUBuffer<T> : IDisposable, IGPUResource<T>
 		where T : struct
 	{
-		private readonly Guard _mapGuard;
-
-		public readonly DXContext Parent;
-		public readonly D3D11Buffer Buffer;
-		public readonly bool IsDynamic;
-		public readonly int ByteSize;
-		public readonly int Count;
-		public readonly int Stride;
+		public DXContext Parent { get; }
+		public D3D11Buffer Buffer { get; }
+		public D3D11Resource Resource => Buffer;
+		public bool IsDynamic { get; }
+		public int ByteSize { get; }
+		public int Count { get; }
+		public int Stride { get; }
 
 		protected GPUBuffer(DXContext ctx, int count, BindFlags flags, bool dynamic, ResourceOptionFlags options = default)
 		{
@@ -42,49 +38,12 @@ namespace Dig.Renderer
 			};
 
 			Buffer = new D3D11Buffer(Parent.Device, desc);
-			_mapGuard = new Guard(Unmap);
 		}
 
 		protected GPUBuffer(DXContext ctx, Span<T> data, BindFlags flags, bool dynamic, ResourceOptionFlags options = default)
 			: this(ctx, data.Length, flags, dynamic, options)
 		{
-			Upload(data);
-		}
-
-		public unsafe void Upload(Span<T> data)
-		{
-			Debug.Assert(data.Length <= Count, "data.Length <= Length");
-
-			if (IsDynamic)
-			{
-				using (Map(out var target))
-				{
-					data.CopyTo(target);
-				}
-			}
-			else
-			{
-				var bytes = MemoryMarshal.AsBytes(data);
-				fixed (void* ptr = &bytes[0])
-				{
-					var box = new DataBox((IntPtr)ptr, 0, 0);
-					var region = new ResourceRegion(0, 0, 0, ByteSize, 1, 1);
-					Parent.Context.UpdateSubresource(box, Buffer, 0, region);
-				}
-			}
-		}
-
-		public unsafe Guard Map(out Span<T> span)
-		{
-			var targetSize = Buffer.Description.SizeInBytes;
-			var target = Parent.Context.MapSubresource(Buffer, 0, MapMode.WriteDiscard, MapFlags.None);
-			span = new Span<T>(target.DataPointer.ToPointer(), targetSize);
-			return _mapGuard;
-		}
-
-		public void Unmap()
-		{
-			Parent.Context.UnmapSubresource(Buffer, 0);
+			this.Upload(data);
 		}
 
 		public void Dispose()
