@@ -46,12 +46,6 @@ namespace Dig.Renderer
 			Buffer = new D3D11Buffer(Parent.Device, desc);
 		}
 
-		protected GPUBuffer(DXContext ctx, Span<T> data, BindFlags flags, bool dynamic, ResourceOptionFlags options = default)
-			: this(ctx, data.Length, flags, dynamic, options)
-		{
-			this.Upload(data);
-		}
-
 		public void Dispose()
 		{
 			Dispose(true);

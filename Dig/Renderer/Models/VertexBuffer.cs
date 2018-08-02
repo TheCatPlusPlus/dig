@@ -1,5 +1,3 @@
-using System;
-
 using Dig.Renderer.Shaders;
 
 using SharpDX.Direct3D11;
@@ -26,12 +24,6 @@ namespace Dig.Renderer.Models
 
 		public VertexBuffer(DXContext ctx, int count, bool dynamic)
 			: base(ctx, count, BindFlags.VertexBuffer, dynamic)
-		{
-			Layout = VertexBufferLayout.CommonLayout;
-		}
-
-		public VertexBuffer(DXContext ctx, Span<Vertex> data, bool dynamic)
-			: base(ctx, data, BindFlags.VertexBuffer, dynamic)
 		{
 			Layout = VertexBufferLayout.CommonLayout;
 		}
