@@ -4,11 +4,7 @@ using SharpDX.Direct3D11;
 
 namespace Dig.Renderer.Models
 {
-	public interface IVertexBuffer
-	{
-	}
-
-	public sealed class VertexBuffer : GPUBuffer<Vertex>, IVertexBuffer
+	public sealed class VertexBuffer : GPUBuffer<Vertex>
 	{
 		public readonly InputLayout Layout;
 
@@ -22,8 +18,8 @@ namespace Dig.Renderer.Models
 			}
 		}
 
-		public VertexBuffer(DXContext ctx, int count, bool dynamic)
-			: base(ctx, count, BindFlags.VertexBuffer, dynamic)
+		public VertexBuffer(DXContext ctx, int capacity, bool dynamic)
+			: base(ctx, capacity, BindFlags.VertexBuffer, dynamic)
 		{
 			Layout = VertexBufferLayout.CommonLayout;
 		}

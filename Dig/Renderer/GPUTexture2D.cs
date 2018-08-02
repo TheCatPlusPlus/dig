@@ -1,7 +1,5 @@
 using System;
 
-using JetBrains.Annotations;
-
 using SharpDX.Direct3D11;
 using SharpDX.DXGI;
 
@@ -11,7 +9,7 @@ using Resource = SharpDX.Direct3D11.Resource;
 
 namespace Dig.Renderer
 {
-	public abstract class GPUTexture2D : IDisposable, IGPUResource<byte>
+	public abstract class GPUTexture2D : IDisposable
 	{
 		public readonly D3D11Texture2D1 Texture;
 

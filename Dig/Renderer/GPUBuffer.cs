@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 
 using SharpDX.Direct3D11;
@@ -8,7 +9,7 @@ using D3D11Resource = SharpDX.Direct3D11.Resource;
 
 namespace Dig.Renderer
 {
-	public class GPUBuffer<T> : IDisposable, IGPUResource<T>
+	public class GPUBuffer<T> : IDisposable
 		where T : struct
 	{
 		public DXContext Parent { get; }
@@ -16,8 +17,10 @@ namespace Dig.Renderer
 		public D3D11Resource Resource => Buffer;
 		public bool IsDynamic { get; }
 		public int ByteSize { get; }
-		public int Count { get; }
+		public int Capacity { get; }
 		public int Stride { get; }
+
+		public int Count { get; private set; }
 
 		public virtual string DebugName
 		{
@@ -25,12 +28,12 @@ namespace Dig.Renderer
 			set => Buffer.DebugName = value;
 		}
 
-		protected GPUBuffer(DXContext ctx, int count, BindFlags flags, bool dynamic, ResourceOptionFlags options = default)
+		protected GPUBuffer(DXContext ctx, int capacity, BindFlags flags, bool dynamic, ResourceOptionFlags options = default)
 		{
 			Parent = ctx;
 			Stride = Marshal.SizeOf<T>();
-			Count = count;
-			ByteSize = Stride * Count;
+			Capacity = capacity;
+			ByteSize = Stride * Capacity;
 			IsDynamic = dynamic;
 
 			var desc = new BufferDescription
@@ -44,6 +47,40 @@ namespace Dig.Renderer
 			};
 
 			Buffer = new D3D11Buffer(Parent.Device, desc);
+		}
+
+		public void Upload(ref T data)
+		{
+			var span = MemoryMarshal.CreateSpan(ref data, 1);
+			Upload(span);
+		}
+
+		public unsafe void Upload(Span<T> data, int offset = 0)
+		{
+			if (IsDynamic)
+			{
+				throw new NotImplementedException();
+			}
+
+			Count = data.Length;
+
+			var bytes = MemoryMarshal.AsBytes(data);
+			fixed (void* ptr = &bytes[0])
+			{
+				Upload(ptr, bytes.Length, offset * Stride);
+			}
+		}
+
+		private unsafe void Upload(void* ptr, int byteSize, int byteOffset)
+		{
+			Debug.Assert(byteOffset + byteSize <= ByteSize, "offset + size <= ByteCapacity");
+			var region = new ResourceRegion(byteOffset, 0, 0, byteOffset + byteSize, 1, 1);
+			Upload(region, (IntPtr)ptr);
+		}
+
+		protected virtual void Upload(ResourceRegion? region, IntPtr data)
+		{
+			Parent.Context.UpdateSubresource(Buffer, 0, region, data, 0, 0);
 		}
 
 		public void Dispose()
