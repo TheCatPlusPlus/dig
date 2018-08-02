@@ -1,19 +1,16 @@
 using System;
 
+using Dig.Renderer.Shaders;
+
 using SharpDX.Direct3D11;
 
-namespace Dig.Renderer
+namespace Dig.Renderer.Models
 {
-	public interface IVertex
-	{
-	}
-
 	public interface IVertexBuffer
 	{
 	}
 
-	public sealed class VertexBuffer<T> : GPUBuffer<T>, IVertexBuffer
-		where T : struct, IVertex
+	public sealed class VertexBuffer : GPUBuffer<Vertex>, IVertexBuffer
 	{
 		public readonly InputLayout Layout;
 
@@ -27,16 +24,16 @@ namespace Dig.Renderer
 			}
 		}
 
-		public VertexBuffer(DXContext ctx, VertexShader shader, int count, bool dynamic)
+		public VertexBuffer(DXContext ctx, int count, bool dynamic)
 			: base(ctx, count, BindFlags.VertexBuffer, dynamic)
 		{
-			Layout = VertexBufferLayout.Create<T>(ctx, shader);
+			Layout = VertexBufferLayout.CommonLayout;
 		}
 
-		public VertexBuffer(DXContext ctx, VertexShader shader, Span<T> data, bool dynamic)
+		public VertexBuffer(DXContext ctx, Span<Vertex> data, bool dynamic)
 			: base(ctx, data, BindFlags.VertexBuffer, dynamic)
 		{
-			Layout = VertexBufferLayout.Create<T>(ctx, shader);
+			Layout = VertexBufferLayout.CommonLayout;
 		}
 
 		protected override void Dispose(bool disposing)

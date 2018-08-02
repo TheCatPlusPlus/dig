@@ -6,6 +6,7 @@ using System.Threading;
 
 using Dig.Input;
 using Dig.Renderer;
+using Dig.Renderer.Shaders;
 using Dig.Utils.WinAPI;
 
 namespace Dig
@@ -34,10 +35,14 @@ namespace Dig
 			var input = new InputState();
 			using (var window = new Window(input))
 			using (var dx = new DXContext())
-			using (var dxWindow = new DXWindowContext(window, dx))
-			using (var game = new Game(dx, input))
 			{
-				RunLoop(dx, dxWindow, game, input);
+				VertexBufferLayout.CreateCommon(dx);
+
+				using (var dxWindow = new DXWindowContext(window, dx))
+				using (var game = new Game(dx, input))
+				{
+					RunLoop(dx, dxWindow, game, input);
+				}
 			}
 		}
 

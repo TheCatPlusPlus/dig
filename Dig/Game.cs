@@ -1,53 +1,67 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 
+using Dig.Entities;
 using Dig.Input;
 using Dig.Renderer;
+using Dig.Renderer.Models;
 
 using SharpDX;
 using SharpDX.D3DCompiler;
 using SharpDX.Direct3D;
+using SharpDX.Direct3D11;
 using SharpDX.DXGI;
+
+using D3D11Buffer = SharpDX.Direct3D11.Buffer;
+using D3D11RasterizerState2 = SharpDX.Direct3D11.RasterizerState2;
+using D3D11RasterizerStateDescription2 = SharpDX.Direct3D11.RasterizerStateDescription2;
 
 namespace Dig
 {
 	[StructLayout(LayoutKind.Sequential)]
 	[SuppressMessage("ReSharper", "FieldCanBeMadeReadOnly.Global")]
-	public struct SimpleVertex : IVertex
-	{
-		public Vector3 Position;
-		public Color4 Color;
-
-		public SimpleVertex(float x, float y, float z, float r, float g, float b)
-		{
-			Position = new Vector3(x, y, z);
-			Color = new Color4(r, g, b, 1.0f);
-		}
-	}
-
-	[StructLayout(LayoutKind.Sequential)]
-	[SuppressMessage("ReSharper", "FieldCanBeMadeReadOnly.Global")]
-	public struct SimpleTriangle : IIndex
-	{
-		public uint V0;
-		public uint V1;
-		public uint V2;
-
-		public SimpleTriangle(uint v0, uint v1, uint v2)
-		{
-			V0 = v0;
-			V1 = v1;
-			V2 = v2;
-		}
-	}
-
-	[StructLayout(LayoutKind.Sequential)]
-	[SuppressMessage("ReSharper", "FieldCanBeMadeReadOnly.Global")]
 	public struct PerObject : IConstants
 	{
-		public Matrix Projection;
+		public Matrix Model;
+	}
+
+	[StructLayout(LayoutKind.Sequential)]
+	[SuppressMessage("ReSharper", "FieldCanBeMadeReadOnly.Global")]
+	public struct PerFrame : IConstants
+	{
+		public Matrix ViewProjection;
+	}
+
+	[SuppressMessage("ReSharper", "FieldCanBeMadeReadOnly.Global")]
+	public sealed class SimpleObject
+	{
+		public readonly Mesh Mesh;
+		public readonly Material Material;
+
+		public PerObject PerObject => MakePerObject();
+		public Transform Transform;
+		public int TriangleOffset;
+
+		public SimpleObject(Mesh mesh, Material material)
+		{
+			Mesh = mesh;
+			Material = material;
+		}
+
+		private PerObject MakePerObject()
+		{
+			var model = Transform.Matrix;
+			model.Transpose();
+
+			return new PerObject
+			{
+				Model = model
+			};
+		}
 	}
 
 	[SuppressMessage("ReSharper", "NotAccessedField.Local")]
@@ -57,50 +71,124 @@ namespace Dig
 		private readonly InputState _input;
 
 		private readonly Material _unlit;
-		private readonly VertexBuffer<SimpleVertex> _vertexBuffer;
-		private readonly IndexBuffer<SimpleTriangle> _indexBuffer;
+		private readonly List<SimpleObject> _objects;
+		private readonly int _vertexCount;
+		private readonly int _triangleCount;
+
+		private readonly VertexBuffer _vertexBuffer;
+		private readonly IndexBuffer _indexBuffer;
 		private readonly ConstantBuffer<PerObject> _perObjectBuffer;
+		private readonly ConstantBuffer<PerFrame> _perFrameBuffer;
+		private readonly D3D11Buffer[] _cbuffers;
+		private readonly D3D11RasterizerState2 _rsWireframe;
+
+		private double _rotation;
 
 		public Game(DXContext dx, InputState input)
 		{
 			_dx = dx;
 			_input = input;
 
-			var vertices = new[]
-			{
-				new SimpleVertex(-0.5f, -0.5f, 0.5f, 1.0f, 0.0f, 0.0f),
-				new SimpleVertex(-0.5f, 0.5f, 0.5f, 0.0f, 1.0f, 0.0f),
-				new SimpleVertex(0.5f, 0.5f, 0.5f, 0.0f, 0.0f, 1.0f),
-				new SimpleVertex(0.5f, -0.5f, 0.5f, 0.0f, 1.0f, 0.0f)
-			};
-
-			var triangles = new[]
-			{
-				new SimpleTriangle(0, 1, 2),
-				new SimpleTriangle(0, 2, 3)
-			};
-
 			_unlit = new Material(dx, "Unlit");
 			_unlit.DebugName = $"{nameof(Game)}.{nameof(_unlit)}";
 
-			_vertexBuffer = new VertexBuffer<SimpleVertex>(_dx, _unlit.VertexShader, vertices, false);
+			var green = new Color4(0, 1, 0, 1);
+			var blue = new Color4(0, 0, 1, 0);
+			var red = new Color4(1, 0, 0, 1);
+
+			var cube = MeshBuilder.Cube();
+			cube.GetVertex(0).Color = green;
+			cube.GetVertex(1).Color = red;
+			cube.GetVertex(2).Color = blue;
+			cube.GetVertex(3).Color = red;
+			cube.GetVertex(4).Color = green;
+			cube.GetVertex(5).Color = blue;
+			cube.GetVertex(6).Color = green;
+			cube.GetVertex(7).Color = red;
+
+			_objects = new List<SimpleObject>
+			{
+				new SimpleObject(new Mesh(cube), _unlit)
+				{
+					Transform =
+					{
+						Position = new Vector3(2, 0, 0),
+						Scale = Vector3.One
+					}
+				},
+				new SimpleObject(new Mesh(cube), _unlit)
+				{
+					Transform =
+					{
+						Position = new Vector3(-2, 0, 0),
+						Scale = new Vector3(1.3f, 1.3f, 1.3f)
+					}
+				}
+			};
+
+			_vertexCount = _objects.Sum(o => o.Mesh.Vertices.Length);
+			_triangleCount = _objects.Sum(o => o.Mesh.Triangles.Length);
+
+			_vertexBuffer = new VertexBuffer(_dx, _vertexCount, false);
 			_vertexBuffer.DebugName = $"{nameof(Game)}.{nameof(_vertexBuffer)}";
 
-			_indexBuffer = new IndexBuffer<SimpleTriangle>(_dx, triangles, false);
+			_indexBuffer = new IndexBuffer(_dx, _triangleCount, false);
 			_indexBuffer.DebugName = $"{nameof(Game)}.{nameof(_indexBuffer)}";
 
 			_perObjectBuffer = new ConstantBuffer<PerObject>(dx, false);
 			_perObjectBuffer.DebugName = $"{nameof(Game)}.{nameof(_perObjectBuffer)}";
+
+			_perFrameBuffer = new ConstantBuffer<PerFrame>(dx, false);
+			_perFrameBuffer.DebugName = $"{nameof(Game)}.{nameof(_perFrameBuffer)}";
+
+			_cbuffers = new[]
+			{
+				_perFrameBuffer.Buffer,
+				_perObjectBuffer.Buffer
+			};
+
+			var rsWireframe = new D3D11RasterizerStateDescription2
+			{
+				CullMode = CullMode.None,
+				FillMode = FillMode.Wireframe
+			};
+
+			_rsWireframe = new D3D11RasterizerState2(dx.Device, rsWireframe);
+			_rsWireframe.DebugName = $"{nameof(Game)}.{nameof(_rsWireframe)}";
+
+			var vertexOffset = 0;
+			var triangleOffset = 0;
+			foreach (var obj in _objects)
+			{
+				obj.TriangleOffset = triangleOffset;
+				_vertexBuffer.Upload(obj.Mesh.Vertices, vertexOffset);
+				_indexBuffer.Upload(obj.Mesh.Triangles, triangleOffset);
+				vertexOffset += obj.Mesh.Vertices.Length;
+				triangleOffset += obj.Mesh.Triangles.Length;
+			}
 		}
 
 		public void Dispose()
 		{
+			_indexBuffer.Dispose();
 			_vertexBuffer.Dispose();
+			_rsWireframe.Dispose();
+			_perObjectBuffer.Dispose();
+			_perFrameBuffer.Dispose();
 			_unlit.Dispose();
 		}
 
 		public void UpdateFixed(double dt)
 		{
+			_rotation += dt * 0.5;
+
+			if (_rotation >= Math.PI * 2)
+			{
+				_rotation = 0;
+			}
+
+			_objects[0].Transform.Rotation = Quaternion.RotationAxis(Vector3.Up, (float)_rotation);
+			_objects[1].Transform.Rotation = Quaternion.RotationAxis(Vector3.Down, (float)_rotation);
 		}
 
 		public void Update(double dt)
@@ -112,23 +200,22 @@ namespace Dig
 			var ia = dx.Context.InputAssembler;
 			var vs = dx.Context.VertexShader;
 			var ps = dx.Context.PixelShader;
+			var rs = dx.Context.Rasterizer;
 
-			var eye = new Vector3(0, 0, -5f);
-			var target = new Vector3(1f, 0, 0);
-			var up = new Vector3(0, 1, 0);
-			var model = Matrix.Identity;
-			var view = Matrix.LookAtLH(eye, target, up);
+			var eye = new Vector3(0, 3.0f, -12f);
+			var target = new Vector3(0, 0, 0);
+			var view = Matrix.LookAtLH(eye, target, Vector3.Up);
 			var projection = Matrix.PerspectiveFovLH(75, dx.AspectRatio, 0.03f, 50f);
 
-			var mvp = model * view * projection;
-			mvp.Transpose();
+			var vp = view * projection;
+			vp.Transpose();
 
-			var perObject = new PerObject
+			var perFrame = new PerFrame
 			{
-				Projection = mvp
+				ViewProjection = vp
 			};
 
-			_perObjectBuffer.Upload(ref perObject);
+			_perFrameBuffer.Upload(ref perFrame);
 
 			ia.InputLayout = _vertexBuffer.Layout;
 			ia.PrimitiveTopology = PrimitiveTopology.TriangleList;
@@ -136,9 +223,15 @@ namespace Dig
 			ia.SetIndexBuffer(_indexBuffer.Buffer, Format.R32_UInt, 0);
 			vs.Set(_unlit.VertexShader.Shader);
 			ps.Set(_unlit.PixelShader.Shader);
-			vs.SetConstantBuffer(0, _perObjectBuffer.Buffer);
+			vs.SetConstantBuffers(0, _cbuffers.Length, _cbuffers);
+//			rs.State = _rsWireframe;
 
-			dx.Context.DrawIndexed(6, 0, 0);
+			foreach (var obj in _objects)
+			{
+				var perObject = obj.PerObject;
+				_perObjectBuffer.Upload(ref perObject);
+				dx.Context.DrawIndexed(obj.Mesh.Triangles.Length * Marshal.SizeOf<Triangle>(), obj.TriangleOffset, 0);
+			}
 		}
 
 		public void Render2D(DXWindowContext dx)

@@ -1,6 +1,8 @@
 using System;
 using System.IO;
 
+using Dig.Renderer.Shaders;
+
 using SharpDX.D3DCompiler;
 
 namespace Dig.Renderer
@@ -25,14 +27,8 @@ namespace Dig.Renderer
 
 		public Material(DXContext dx, string filename)
 		{
-			filename = $"{filename}.hlsl";
-
-			var source = File.ReadAllText(Path.Combine("Assets", filename));
-			var vsCode = ShaderBytecode.Compile(source, "VSMain", "vs_5_0", ShaderFlags.Debug, sourceFileName: filename);
-			var psCode = ShaderBytecode.Compile(source, "PSMain", "ps_5_0", ShaderFlags.Debug, sourceFileName: filename);
-
-			VertexShader = new VertexShader(dx, vsCode);
-			PixelShader = new PixelShader(dx, psCode);
+			VertexShader = new VertexShader(dx, filename);
+			PixelShader = new PixelShader(dx, filename);
 		}
 
 		public void Dispose()

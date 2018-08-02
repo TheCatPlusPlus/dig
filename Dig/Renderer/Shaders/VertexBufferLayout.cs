@@ -5,14 +5,18 @@ using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
 
+using Dig.Renderer.Models;
+
 using SharpDX;
+using SharpDX.D3DCompiler;
 using SharpDX.Direct3D11;
 using SharpDX.DXGI;
 using SharpDX.Mathematics.Interop;
 
 using D3D11VertexShader = SharpDX.Direct3D11.VertexShader;
+using VertexShader = Dig.Renderer.Shaders.VertexShader;
 
-namespace Dig.Renderer
+namespace Dig.Renderer.Shaders
 {
 	public static class VertexBufferLayout
 	{
@@ -38,25 +42,24 @@ namespace Dig.Renderer
 			{ typeof(RawBool), Format.R32_SInt }
 		};
 
-		public static InputLayout Create<T>(DXContext ctx, VertexShader shader)
-			where T : struct, IVertex
-		{
-			var type = typeof(T);
-//
-//			Debug.Assert(
-//				type.GetCustomAttribute<StructLayoutAttribute>() != null,
-//				"type.GetCustomAttribute<StructLayoutAttribute>() != null");
-//			Debug.Assert(
-//				type.GetCustomAttribute<StructLayoutAttribute>().Value == LayoutKind.Sequential,
-//				"type.GetCustomAttribute<StructLayoutAttribute>().Value == LayoutKind.Sequential");
+		public static InputLayout CommonLayout { get; private set; }
 
-			var query = from field in type.GetFields()
+		public static void CreateCommon(DXContext ctx)
+		{
+			var bytecode = ShaderCompiler.CompileVertexShader("Layout");
+			CommonLayout = Create<Vertex>(ctx, bytecode);
+		}
+
+		public static InputLayout Create<T>(DXContext ctx, byte[] bytecode)
+			where T : struct
+		{
+			var query = from field in typeof(T).GetFields()
 				let offset = Marshal.OffsetOf<T>(field.Name).ToInt32()
 				orderby offset
 				let format = GetFormat(field.FieldType)
 				select new InputElement(field.Name, 0, format, offset, 0);
 
-			return new InputLayout(ctx.Device, shader.Bytecode, query.ToArray());
+			return new InputLayout(ctx.Device, bytecode, query.ToArray());
 		}
 
 		private static Format GetFormat(Type type)

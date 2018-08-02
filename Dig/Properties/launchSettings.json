@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "Dig": {
+      "commandName": "Project",
+      "workingDirectory": "$(ProjectDir)"
+    }
+  }
+}

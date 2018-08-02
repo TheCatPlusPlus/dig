@@ -1,5 +1,6 @@
 using System;
 
+using Dig.Renderer.Shaders;
 using Dig.Utils.WinAPI;
 
 using SharpDX.Direct2D1;

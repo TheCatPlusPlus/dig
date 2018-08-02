@@ -67,6 +67,9 @@ namespace Dig.Utils.WinAPI
 
 		public const uint PM_REMOVE = 0x0001;
 
+		public const int SM_CXSCREEN = 0;
+		public const int SM_CYSCREEN = 1;
+
 		public static readonly IntPtr IDC_ARROW = new IntPtr(32512);
 
 		[UnmanagedFunctionPointer(CallingConvention.Winapi)]
@@ -182,5 +185,8 @@ namespace Dig.Utils.WinAPI
 
 		[DllImport(Library, CharSet = CharSet.Unicode)]
 		public static extern bool AdjustWindowRectEx(ref RECT rect, uint style, bool menu, uint exStyle);
+
+		[DllImport(Library, CharSet = CharSet.Unicode)]
+		public static extern int GetSystemMetrics(int metric);
 	}
 }

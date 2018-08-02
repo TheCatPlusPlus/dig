@@ -2,18 +2,13 @@ using System;
 
 using SharpDX.Direct3D11;
 
-namespace Dig.Renderer
+namespace Dig.Renderer.Models
 {
-	public interface IIndex
-	{
-	}
-
 	public interface IIndexBuffer
 	{
 	}
 
-	public sealed class IndexBuffer<T> : GPUBuffer<T>, IIndexBuffer
-		where T : struct, IIndex
+	public sealed class IndexBuffer : GPUBuffer<Triangle>, IIndexBuffer
 	{
 		public IndexBuffer(DXContext ctx, int count, bool dynamic)
 			: base(ctx, count, BindFlags.IndexBuffer, dynamic)
@@ -21,7 +16,7 @@ namespace Dig.Renderer
 			// TODO assert all the base fields are ints
 		}
 
-		public IndexBuffer(DXContext ctx, Span<T> data, bool dynamic)
+		public IndexBuffer(DXContext ctx, Span<Triangle> data, bool dynamic)
 			: base(ctx, data, BindFlags.IndexBuffer, dynamic)
 		{
 			// TODO assert all the base fields are ints

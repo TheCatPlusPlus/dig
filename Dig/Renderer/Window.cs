@@ -53,9 +53,16 @@ namespace Dig.Renderer
 			const uint exStyle = WS_EX_OVERLAPPEDWINDOW;
 			AdjustWindowRectEx(ref rect, style, false, exStyle);
 
+			var screenWidth = GetSystemMetrics(SM_CXSCREEN);
+			var screenHeight = GetSystemMetrics(SM_CYSCREEN);
+			var realWidth = rect.Right - rect.Left;
+			var realHeight = rect.Bottom - rect.Top;
+			var x = screenWidth / 2 - realWidth / 2;
+			var y = screenHeight / 2 - realHeight / 2;
+
 			Handle = CreateWindowEx(
 				exStyle, classAtom, "Dig", style,
-				CW_USEDEFAULT, CW_USEDEFAULT, rect.Right - rect.Left, rect.Bottom - rect.Top,
+				x, y, realWidth, realHeight,
 				IntPtr.Zero, IntPtr.Zero, Instance, IntPtr.Zero
 			);
 
