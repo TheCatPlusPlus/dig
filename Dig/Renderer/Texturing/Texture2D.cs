@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 
+using Dig.Renderer.Texturing;
 using Dig.Utils.WinAPI;
 
 using SharpDX.Direct3D11;
@@ -11,9 +12,9 @@ using D3D11Texture2DDescription1 = SharpDX.Direct3D11.Texture2DDescription1;
 using D3D11ShaderResourceView1 = SharpDX.Direct3D11.ShaderResourceView1;
 using D3D11ShaderResourceViewDescription1 = SharpDX.Direct3D11.ShaderResourceViewDescription1;
 
-namespace Dig.Renderer
+namespace Dig.Renderer.Texturing
 {
-	public sealed class Texture2D : IDisposable
+	public sealed class GPUTexture2D : IDisposable
 	{
 		public DXContext Parent { get; }
 		public D3D11Texture2D1 Texture { get; }
@@ -33,7 +34,7 @@ namespace Dig.Renderer
 			}
 		}
 
-		public Texture2D(DXContext dx, Span<byte> dds, BindFlags flags = BindFlags.ShaderResource)
+		public GPUTexture2D(DXContext dx, Span<byte> dds, BindFlags flags = BindFlags.ShaderResource)
 		{
 			Parent = dx;
 			(Texture, View, Alpha) = DX.TextureCreateFromDDS(dx.Device, dds, flags);
@@ -45,10 +46,10 @@ namespace Dig.Renderer
 			Format = desc.Format;
 		}
 
-		public static Texture2D Load(DXContext dx, string filename, BindFlags flags = BindFlags.ShaderResource)
+		public static GPUTexture2D Load(DXContext dx, string filename, BindFlags flags = BindFlags.ShaderResource)
 		{
 			var bytes = File.ReadAllBytes(filename);
-			return new Texture2D(dx, bytes, flags);
+			return new GPUTexture2D(dx, bytes, flags);
 		}
 
 		public void Dispose()

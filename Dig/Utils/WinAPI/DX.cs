@@ -5,6 +5,7 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 
 using Dig.Renderer;
+using Dig.Renderer.Texturing;
 
 using JetBrains.Annotations;
 

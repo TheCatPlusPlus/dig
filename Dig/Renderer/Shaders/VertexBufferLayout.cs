@@ -57,9 +57,11 @@ namespace Dig.Renderer.Shaders
 				let offset = Marshal.OffsetOf<T>(field.Name).ToInt32()
 				orderby offset
 				let format = GetFormat(field.FieldType)
-				select new InputElement(field.Name, 0, format, offset, 0);
+				let semantic = field.GetCustomAttribute<SemanticAttribute>()
+				select new InputElement(semantic.Name, 0, format, offset, 0);
 
-			return new InputLayout(ctx.Device, bytecode, query.ToArray());
+			var elements = query.ToArray();
+			return new InputLayout(ctx.Device, bytecode, elements);
 		}
 
 		private static Format GetFormat(Type type)

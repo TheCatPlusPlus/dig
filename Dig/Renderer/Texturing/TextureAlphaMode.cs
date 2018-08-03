@@ -1,4 +1,4 @@
-﻿namespace Dig.Renderer
+namespace Dig.Renderer.Texturing
 {
 	public enum TextureAlphaMode
 	{

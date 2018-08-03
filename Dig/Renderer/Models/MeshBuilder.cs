@@ -1,5 +1,9 @@
 using System.Collections.Generic;
 
+using Dig.Renderer.Texturing;
+
+using SharpDX;
+
 namespace Dig.Renderer.Models
 {
 	public sealed class MeshBuilder
@@ -23,9 +27,9 @@ namespace Dig.Renderer.Models
 			return Add(_vertices, vertex);
 		}
 
-		public uint AddVertex(float x, float y, float z)
+		public uint AddVertex(float x, float y, float z, Vector2 uv)
 		{
-			return AddVertex(new Vertex(x, y, z));
+			return AddVertex(new Vertex(x, y, z, uv));
 		}
 
 		public uint AddTriangle(in Triangle triangle)
@@ -56,42 +60,57 @@ namespace Dig.Renderer.Models
 			return idx;
 		}
 
-		public static Mesh Cube()
+		public static Mesh Cube(UVRect topUV, UVRect bottomUV, UVRect sidesUV)
 		{
 			var cube = new MeshBuilder();
 
-			cube.AddVertex(-1.0f, -1.0f, -1.0f);
-			cube.AddVertex(-1.0f, +1.0f, -1.0f);
-			cube.AddVertex(+1.0f, +1.0f, -1.0f);
-			cube.AddVertex(+1.0f, -1.0f, -1.0f);
-			cube.AddVertex(-1.0f, -1.0f, +1.0f);
-			cube.AddVertex(-1.0f, +1.0f, +1.0f);
-			cube.AddVertex(+1.0f, +1.0f, +1.0f);
-			cube.AddVertex(+1.0f, -1.0f, +1.0f);
+			// top face
+			cube.AddVertex(-1.0f, 1.0f, -1.0f, topUV.BottomLeft);
+			cube.AddVertex(-1.0f, 1.0f, 1.0f, topUV.TopLeft);
+			cube.AddVertex(1.0f, 1.0f, 1.0f, topUV.TopRight);
+			cube.AddVertex(1.0f, 1.0f, -1.0f, topUV.BottomRight);
+			cube.AddTriangle(8, 9, 10);
+			cube.AddTriangle(8, 10, 11);
+
+			// bottom face
+			cube.AddVertex(-1.0f, -1.0f, -1.0f, bottomUV.BottomRight);
+			cube.AddVertex(1.0f, -1.0f, -1.0f, bottomUV.BottomLeft);
+			cube.AddVertex(1.0f, -1.0f, 1.0f, bottomUV.TopLeft);
+			cube.AddVertex(-1.0f, -1.0f, 1.0f, bottomUV.TopRight);
+			cube.AddTriangle(12, 13, 14);
+			cube.AddTriangle(12, 14, 15);
 
 			// front face
+			cube.AddVertex(-1.0f, -1.0f, -1.0f, sidesUV.BottomLeft);
+			cube.AddVertex(-1.0f, 1.0f, -1.0f, sidesUV.TopLeft);
+			cube.AddVertex(1.0f, 1.0f, -1.0f, sidesUV.TopRight);
+			cube.AddVertex(1.0f, -1.0f, -1.0f, sidesUV.BottomRight);
 			cube.AddTriangle(0, 1, 2);
 			cube.AddTriangle(0, 2, 3);
 
 			// back face
-			cube.AddTriangle(4, 6, 5);
-			cube.AddTriangle(4, 7, 6);
+			cube.AddVertex(-1.0f, -1.0f, 1.0f, sidesUV.BottomRight);
+			cube.AddVertex(1.0f, -1.0f, 1.0f, sidesUV.BottomLeft);
+			cube.AddVertex(1.0f, 1.0f, 1.0f, sidesUV.TopLeft);
+			cube.AddVertex(-1.0f, 1.0f, 1.0f, sidesUV.TopRight);
+			cube.AddTriangle(4, 5, 6);
+			cube.AddTriangle(4, 6, 7);
 
 			// left face
-			cube.AddTriangle(4, 5, 1);
-			cube.AddTriangle(4, 1, 0);
+			cube.AddVertex(-1.0f, -1.0f, 1.0f, sidesUV.BottomLeft);
+			cube.AddVertex(-1.0f, 1.0f, 1.0f, sidesUV.TopLeft);
+			cube.AddVertex(-1.0f, 1.0f, -1.0f, sidesUV.TopRight);
+			cube.AddVertex(-1.0f, -1.0f, -1.0f, sidesUV.BottomRight);
+			cube.AddTriangle(16, 17, 18);
+			cube.AddTriangle(16, 18, 19);
 
 			// right face
-			cube.AddTriangle(3, 2, 6);
-			cube.AddTriangle(3, 6, 7);
-
-			// top face
-			cube.AddTriangle(1, 5, 6);
-			cube.AddTriangle(1, 6, 2);
-
-			// bottom face
-			cube.AddTriangle(4, 0, 3);
-			cube.AddTriangle(4, 3, 7);
+			cube.AddVertex(1.0f, -1.0f, -1.0f, sidesUV.BottomLeft);
+			cube.AddVertex(1.0f, 1.0f, -1.0f, sidesUV.TopLeft);
+			cube.AddVertex(1.0f, 1.0f, 1.0f, sidesUV.TopRight);
+			cube.AddVertex(1.0f, -1.0f, 1.0f, sidesUV.BottomRight);
+			cube.AddTriangle(20, 21, 22);
+			cube.AddTriangle(20, 22, 23);
 
 			return cube.Finish();
 		}

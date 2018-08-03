@@ -3,8 +3,8 @@
 
 struct VSInput
 {
-	float3 Position : Position;
-	float4 Color : Color;
+	float3 Position : POSITION;
+	float2 UV : TEXCOORD0;
 };
 
 cbuffer PerFrame : register(b0)

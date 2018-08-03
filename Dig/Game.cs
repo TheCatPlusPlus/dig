@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 
@@ -9,9 +8,9 @@ using Dig.Entities;
 using Dig.Input;
 using Dig.Renderer;
 using Dig.Renderer.Models;
+using Dig.Renderer.Texturing;
 
 using SharpDX;
-using SharpDX.D3DCompiler;
 using SharpDX.Direct3D;
 using SharpDX.Direct3D11;
 using SharpDX.DXGI;
@@ -19,7 +18,9 @@ using SharpDX.DXGI;
 using D3D11Buffer = SharpDX.Direct3D11.Buffer;
 using D3D11RasterizerState2 = SharpDX.Direct3D11.RasterizerState2;
 using D3D11RasterizerStateDescription2 = SharpDX.Direct3D11.RasterizerStateDescription2;
-using Texture2D = Dig.Renderer.Texture2D;
+using D3D11SamplerState = SharpDX.Direct3D11.SamplerState;
+using D3D11SamplerStateDescription = SharpDX.Direct3D11.SamplerStateDescription;
+using Texture2D = SharpDX.Direct3D11.Texture2D;
 
 namespace Dig
 {
@@ -44,8 +45,10 @@ namespace Dig
 		public readonly Material Material;
 
 		public PerObject PerObject => MakePerObject();
+
 		public Transform Transform;
 		public int TriangleOffset;
+		public int VertexOffset;
 
 		public SimpleObject(Mesh mesh, Material material)
 		{
@@ -82,7 +85,9 @@ namespace Dig
 		private readonly ConstantBuffer<PerFrame> _perFrameBuffer;
 		private readonly D3D11Buffer[] _cbuffers;
 		private readonly D3D11RasterizerState2 _rsWireframe;
-		private readonly Texture2D _atlas;
+		private readonly GPUTexture2D _atlasTexture;
+		private readonly TextureAtlas _atlas;
+		private readonly D3D11SamplerState _tsCube;
 
 		private double _rotation;
 
@@ -94,23 +99,21 @@ namespace Dig
 			_unlit = new Material(dx, "Unlit");
 			_unlit.DebugName = $"{nameof(Game)}.{nameof(_unlit)}";
 
-			var green = new Color4(0, 1, 0, 1);
-			var blue = new Color4(0, 0, 1, 0);
-			var red = new Color4(1, 0, 0, 1);
+			_atlasTexture = GPUTexture2D.Load(dx, "Assets/Temp/texture-atlas.dds");
+			_atlasTexture.DebugName = $"{nameof(Game)}.{nameof(_atlasTexture)}";
+			_atlas = new TextureAtlas(_atlasTexture, 16, 16);
 
-			var cube = MeshBuilder.Cube();
-			cube.GetVertex(0).Color = green;
-			cube.GetVertex(1).Color = red;
-			cube.GetVertex(2).Color = blue;
-			cube.GetVertex(3).Color = red;
-			cube.GetVertex(4).Color = green;
-			cube.GetVertex(5).Color = blue;
-			cube.GetVertex(6).Color = green;
-			cube.GetVertex(7).Color = red;
+			var dirt = _atlas[5];
+			var sand = _atlas[4];
+			var stone = _atlas[3];
+
+			var dirtCube = MeshBuilder.Cube(dirt, dirt, dirt);
+			var stoneCube = MeshBuilder.Cube(stone, stone, stone);
+			var sandCube = MeshBuilder.Cube(sand, sand, sand);
 
 			_objects = new List<SimpleObject>
 			{
-				new SimpleObject(new Mesh(cube), _unlit)
+				new SimpleObject(stoneCube, _unlit)
 				{
 					Transform =
 					{
@@ -118,7 +121,7 @@ namespace Dig
 						Scale = Vector3.One
 					}
 				},
-				new SimpleObject(new Mesh(cube), _unlit)
+				new SimpleObject(sandCube, _unlit)
 				{
 					Transform =
 					{
@@ -158,23 +161,39 @@ namespace Dig
 			_rsWireframe = new D3D11RasterizerState2(dx.Device, rsWireframe);
 			_rsWireframe.DebugName = $"{nameof(Game)}.{nameof(_rsWireframe)}";
 
+			var tsCube = new D3D11SamplerStateDescription
+			{
+				Filter = Filter.MinMagMipPoint,
+				MaximumAnisotropy = 8,
+				AddressU = TextureAddressMode.Clamp,
+				AddressV = TextureAddressMode.Clamp,
+				AddressW = TextureAddressMode.Clamp,
+				MinimumLod = 0,
+				MaximumLod = 0
+			};
+
+			// TODO put on material
+			_tsCube = new D3D11SamplerState(dx.Device, tsCube);
+			_tsCube.DebugName = $"{nameof(Game)}.{nameof(_tsCube)}";
+
 			var vertexOffset = 0;
 			var triangleOffset = 0;
 			foreach (var obj in _objects)
 			{
 				obj.TriangleOffset = triangleOffset;
+				obj.VertexOffset = vertexOffset;
 				_vertexBuffer.Upload(obj.Mesh.Vertices, vertexOffset);
 				_indexBuffer.Upload(obj.Mesh.Triangles, triangleOffset);
 				vertexOffset += obj.Mesh.Vertices.Length;
 				triangleOffset += obj.Mesh.Triangles.Length;
 			}
-
-			_atlas = Texture2D.Load(dx, "Assets/Temp/texture-atlas.dds");
-			_atlas.DebugName = $"{nameof(Game)}.{nameof(_atlas)}";
 		}
 
 		public void Dispose()
 		{
+			_rsWireframe.Dispose();
+			_tsCube.Dispose();
+			_atlasTexture.Dispose();
 			_indexBuffer.Dispose();
 			_vertexBuffer.Dispose();
 			_rsWireframe.Dispose();
@@ -226,16 +245,24 @@ namespace Dig
 			ia.PrimitiveTopology = PrimitiveTopology.TriangleList;
 			ia.SetVertexBuffers(0, _vertexBuffer.Binding());
 			ia.SetIndexBuffer(_indexBuffer.Buffer, Format.R32_UInt, 0);
+
 			vs.Set(_unlit.VertexShader.Shader);
-			ps.Set(_unlit.PixelShader.Shader);
 			vs.SetConstantBuffers(0, _cbuffers.Length, _cbuffers);
-//			rs.State = _rsWireframe;
+
+			ps.Set(_unlit.PixelShader.Shader);
+			ps.SetSampler(0, _tsCube);
+			ps.SetShaderResource(0, _atlasTexture.View);
+
+			// rs.State = _rsWireframe;
 
 			foreach (var obj in _objects)
 			{
 				var perObject = obj.PerObject;
 				_perObjectBuffer.Upload(ref perObject);
-				dx.Context.DrawIndexed(obj.Mesh.Triangles.Length * Marshal.SizeOf<Triangle>(), obj.TriangleOffset, 0);
+
+				var count = obj.Mesh.Triangles.Length * 3;
+				var offset = obj.TriangleOffset * 3;
+				dx.Context.DrawIndexed(count, offset, obj.VertexOffset);
 			}
 		}
 
