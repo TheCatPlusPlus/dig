@@ -26,5 +26,14 @@ namespace Dig.Utils.WinAPI
 
 		[DllImport(Library, SetLastError = true, CharSet = CharSet.Unicode)]
 		public static extern bool SetDefaultDllDirectories(uint flags);
+
+		[DllImport(Library, SetLastError = true, CharSet = CharSet.Unicode)]
+		public static extern IntPtr LoadLibrary(string path);
+
+		[DllImport(Library, CharSet = CharSet.Unicode, SetLastError = true)]
+		internal static extern IntPtr LoadLibraryEx(string library, IntPtr reserved, uint flags);
+
+		[DllImport(Library, SetLastError = true, CharSet = CharSet.Ansi, ExactSpelling = true)]
+		public static extern IntPtr GetProcAddress(IntPtr handle, string symbol);
 	}
 }

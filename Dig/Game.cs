@@ -19,6 +19,7 @@ using SharpDX.DXGI;
 using D3D11Buffer = SharpDX.Direct3D11.Buffer;
 using D3D11RasterizerState2 = SharpDX.Direct3D11.RasterizerState2;
 using D3D11RasterizerStateDescription2 = SharpDX.Direct3D11.RasterizerStateDescription2;
+using Texture2D = Dig.Renderer.Texture2D;
 
 namespace Dig
 {
@@ -81,6 +82,7 @@ namespace Dig
 		private readonly ConstantBuffer<PerFrame> _perFrameBuffer;
 		private readonly D3D11Buffer[] _cbuffers;
 		private readonly D3D11RasterizerState2 _rsWireframe;
+		private readonly Texture2D _atlas;
 
 		private double _rotation;
 
@@ -166,6 +168,9 @@ namespace Dig
 				vertexOffset += obj.Mesh.Vertices.Length;
 				triangleOffset += obj.Mesh.Triangles.Length;
 			}
+
+			_atlas = Texture2D.Load(dx, "Assets/Temp/texture-atlas.dds");
+			_atlas.DebugName = $"{nameof(Game)}.{nameof(_atlas)}";
 		}
 
 		public void Dispose()

@@ -14,7 +14,6 @@ namespace Dig.Renderer
 	{
 		public DXContext Parent { get; }
 		public D3D11Buffer Buffer { get; }
-		public D3D11Resource Resource => Buffer;
 		public bool IsDynamic { get; }
 		public int ByteSize { get; }
 		public int Capacity { get; }
