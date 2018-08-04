@@ -126,7 +126,6 @@ namespace Dig.Renderer
 
 			Context.Rasterizer.SetViewport(0, 0, Window.Width, Window.Height);
 			Context.OutputMerger.SetRenderTargets(DepthView, target);
-			Context.ClearRenderTargetView(target, new RawColor4(0, 0, 0, 1f));
 			Context.ClearDepthStencilView(DepthView, DepthStencilClearFlags.Depth | DepthStencilClearFlags.Stencil, 1.0f, 0);
 		}
 

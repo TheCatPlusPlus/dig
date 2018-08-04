@@ -39,7 +39,7 @@ namespace Dig
 				VertexBufferLayout.CreateCommon(dx);
 
 				using (var dxWindow = new DXWindowContext(window, dx))
-				using (var game = new Game(dx, input))
+				using (var game = new Game(dx, dxWindow, input))
 				{
 					RunLoop(dx, dxWindow, game, input);
 				}

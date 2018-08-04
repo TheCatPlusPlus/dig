@@ -9,6 +9,7 @@ using Dig.Input;
 using Dig.Renderer;
 using Dig.Renderer.Models;
 using Dig.Renderer.Texturing;
+using Dig.Utils;
 
 using SharpDX;
 using SharpDX.Direct3D;
@@ -20,7 +21,6 @@ using D3D11RasterizerState2 = SharpDX.Direct3D11.RasterizerState2;
 using D3D11RasterizerStateDescription2 = SharpDX.Direct3D11.RasterizerStateDescription2;
 using D3D11SamplerState = SharpDX.Direct3D11.SamplerState;
 using D3D11SamplerStateDescription = SharpDX.Direct3D11.SamplerStateDescription;
-using Texture2D = SharpDX.Direct3D11.Texture2D;
 
 namespace Dig
 {
@@ -46,7 +46,7 @@ namespace Dig
 
 		public PerObject PerObject => MakePerObject();
 
-		public Transform Transform;
+		public Transform Transform { get; }
 		public int TriangleOffset;
 		public int VertexOffset;
 
@@ -54,6 +54,7 @@ namespace Dig
 		{
 			Mesh = mesh;
 			Material = material;
+			Transform = new Transform();
 		}
 
 		private PerObject MakePerObject()
@@ -65,6 +66,83 @@ namespace Dig
 			{
 				Model = model
 			};
+		}
+	}
+
+	public sealed class Camera
+	{
+		private float _aspectRatio;
+		private float _fov;
+		private float _nearPlane;
+		private float _farPlane;
+
+		public Transform Transform { get; }
+		public Matrix View { get; private set; }
+		public Matrix Projection { get; private set; }
+		public Matrix ViewProjection { get; private set; }
+		public Matrix ViewProjectionT => Matrix.Transpose(ViewProjection);
+
+		public float AspectRatio
+		{
+			get => _aspectRatio;
+			set
+			{
+				_aspectRatio = value;
+				Update();
+			}
+		}
+
+		public float FOV
+		{
+			get => _fov;
+			set
+			{
+				_fov = value;
+				Update();
+			}
+		}
+
+		public float NearPlane
+		{
+			get => _nearPlane;
+			set
+			{
+				_nearPlane = value;
+				Update();
+			}
+		}
+
+		public float FarPlane
+		{
+			get => _farPlane;
+			set
+			{
+				_farPlane = value;
+				Update();
+			}
+		}
+
+		public Camera(float aspectRatio)
+		{
+			Transform = new Transform();
+			Transform.Changed += Update;
+
+			_aspectRatio = aspectRatio;
+			_fov = 75;
+			_nearPlane = 0.03f;
+			_farPlane = 50.0f;
+
+			Update();
+		}
+
+		private void Update()
+		{
+			var forward = Vector3.Transform(Vector3.ForwardLH, Transform.Rotation);
+			var lookAt = Transform.Position + forward;
+
+			View = Matrix.LookAtLH(Transform.Position, lookAt, Vector3.Up);
+			Projection = Matrix.PerspectiveFovLH(FOV, AspectRatio, NearPlane, FarPlane);
+			ViewProjection = View * Projection;
 		}
 	}
 
@@ -87,10 +165,13 @@ namespace Dig
 		private readonly D3D11RasterizerState2 _rsWireframe;
 		private readonly TextureAtlas _blocksAtlas;
 		private readonly D3D11SamplerState _tsCube;
+		private readonly Camera _camera;
 
 		private double _rotation;
+		private float _lookX;
+		private float _lookY;
 
-		public Game(DXContext dx, InputState input)
+		public Game(DXContext dx, DXWindowContext window, InputState input)
 		{
 			_dx = dx;
 			_input = input;
@@ -185,6 +266,9 @@ namespace Dig
 				vertexOffset += obj.Mesh.Vertices.Length;
 				triangleOffset += obj.Mesh.Triangles.Length;
 			}
+
+			_camera = new Camera(window.AspectRatio);
+			_camera.Transform.Position += Vector3.BackwardLH * 3f;
 		}
 
 		public void Dispose()
@@ -215,6 +299,32 @@ namespace Dig
 
 		public void Update(double dt)
 		{
+			var rotateRate = 0.1f * (float)dt;
+			var moveRate = 20f * (float)dt;
+
+			if (_input.LookX.HasChanged || _input.LookY.HasChanged)
+			{
+				_lookX += _input.LookX.Value * rotateRate;
+				_lookY = MathExt.Clamp(_lookY + _input.LookY.Value * rotateRate, -90f, 90f);
+
+				var rotate = Quaternion.RotationAxis(Vector3.Down, _lookX);
+				rotate *= Quaternion.RotationAxis(Vector3.Left, _lookY);
+
+				_camera.Transform.Rotation = rotate;
+			}
+
+			if (_input.MoveLeft.IsHeld || _input.MoveRight.IsHeld || _input.MoveForward.IsHeld || _input.MoveBackward.IsHeld)
+			{
+				var x = _input.MoveLeft.IsHeld ? -_input.MoveLeft.Value : _input.MoveRight.Value;
+				var z = _input.MoveForward.IsHeld ? _input.MoveForward.Value : -_input.MoveBackward.Value;
+
+				_camera.Transform.Position += Vector3.Left * moveRate * x + Vector3.ForwardLH * moveRate * z;
+			}
+
+			if (_input.Quit.IsDown)
+			{
+				Environment.Exit(0);
+			}
 		}
 
 		public void Render3D(DXWindowContext dx)
@@ -224,17 +334,9 @@ namespace Dig
 			var ps = dx.Context.PixelShader;
 			var rs = dx.Context.Rasterizer;
 
-			var eye = new Vector3(0, 3.0f, -12f);
-			var target = new Vector3(0, 0, 0);
-			var view = Matrix.LookAtLH(eye, target, Vector3.Up);
-			var projection = Matrix.PerspectiveFovLH(75, dx.AspectRatio, 0.03f, 50f);
-
-			var vp = view * projection;
-			vp.Transpose();
-
 			var perFrame = new PerFrame
 			{
-				ViewProjection = vp
+				ViewProjection = _camera.ViewProjectionT
 			};
 
 			_perFrameBuffer.Upload(ref perFrame);
@@ -252,6 +354,7 @@ namespace Dig
 			ps.SetShaderResource(0, _blocksAtlas.View);
 
 			// rs.State = _rsWireframe;
+			dx.Context.ClearRenderTargetView(dx.RenderTargetView, new Color(0.76f, 0.89f, 0.93f));
 
 			foreach (var obj in _objects)
 			{
