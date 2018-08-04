@@ -21,7 +21,10 @@
     <PackageReference Include="Fody" Version="3.1.4" />
     <PackageReference Include="InlineIL.Fody" Version="0.6.3" />
     <PackageReference Include="JetBrains.Annotations" Version="2018.2.1" />
+    <PackageReference Include="Newtonsoft.Json" Version="11.0.2" />
     <PackageReference Include="NLog" Version="4.5.7" />
+    <PackageReference Include="NodaTime" Version="2.3.0" />
+    <PackageReference Include="NodaTime.Serialization.JsonNet" Version="2.0.0" />
     <PackageReference Include="Obsolete.Fody" Version="4.4.1" />
     <PackageReference Include="SharpDX.D3DCompiler" Version="4.1.0" />
     <PackageReference Include="SharpDX.Direct2D1" Version="4.1.0" />

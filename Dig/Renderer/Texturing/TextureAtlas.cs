@@ -1,65 +1,77 @@
-using SharpDX;
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+
+using Dig.Utils;
+
+using JetBrains.Annotations;
+
+using Newtonsoft.Json;
+
+using SharpDX.Direct3D11;
 
 namespace Dig.Renderer.Texturing
 {
-	public sealed class TextureAtlas
+	public sealed class TextureAtlas : IEnumerable<TextureAtlas.AtlasItem>, IDisposable
 	{
-		public GPUTexture2D Texture { get; }
-		public int ItemWidth { get; }
-		public int ItemHeight { get; }
-		public int Rows { get; }
-		public int Columns { get; }
-
-		public UVRect this[int idx] => GetUV(idx);
-
-		public TextureAtlas(GPUTexture2D texture, int itemWidth, int itemHeight)
+		[JsonObject(MemberSerialization.OptOut)]
+		public sealed class AtlasItem
 		{
-			Texture = texture;
-			ItemWidth = itemWidth;
-			ItemHeight = itemHeight;
-
-			Columns = Texture.Width / ItemWidth;
-			Rows = Texture.Height / ItemHeight;
+			public int Width { get; set; }
+			public int Height { get; set; }
+			public string Name { get; set; }
+			public int Index { get; set; }
+			public UVRect UVRect { get; set; }
+			public int X { get; set; }
+			public int Y { get; set; }
 		}
 
-		private UVRect GetUV(int idx)
+		private readonly List<AtlasItem> _items;
+		private readonly Dictionary<string, AtlasItem> _byName;
+
+		public GPUTexture2D Texture { get; }
+		public ShaderResourceView1 View => Texture.View;
+
+		public UVRect this[int idx] => _items[idx].UVRect;
+		public UVRect this[string name] => _byName[name].UVRect;
+
+		public string DebugName
 		{
-			var column = idx % Columns;
-			var row = idx / Columns;
+			get => Texture.DebugName;
+			set => Texture.DebugName = value;
+		}
 
-			var topLeftX = column * ItemWidth + 0.5f;
-			var topLeftY = row * ItemHeight + 0.5f;
+		public TextureAtlas(GPUTexture2D texture, IEnumerable<AtlasItem> items)
+		{
+			Texture = texture;
+			_items = items.ToList();
+			_byName = _items.ToDictionary(i => i.Name, i => i);
+		}
 
-			var topRightX = topLeftX + ItemWidth - 1;
-			var topRightY = topLeftY;
+		public static TextureAtlas Load(DXContext dx, string filename)
+		{
+			var texture = GPUTexture2D.Load(dx, Path.ChangeExtension(filename, "dds"));
+			var items = JSON.Load<List<AtlasItem>>(Path.ChangeExtension(filename, "json"));
+			return new TextureAtlas(texture, items);
+		}
 
-			var bottomLeftX = topLeftX;
-			var bottomLeftY = topLeftY + ItemHeight - 1;
+		public void Dispose()
+		{
+			Texture.Dispose();
+		}
 
-			var bottomRightX = topRightX;
-			var bottomRightY = topRightY + ItemHeight - 1;
+		[NotNull]
+		public IEnumerator<AtlasItem> GetEnumerator()
+		{
+			return _items.GetEnumerator();
+		}
 
-			var topLeftU = topLeftX / Texture.Width;
-			var topLeftV = topLeftY / Texture.Height;
-			var topRightU = topRightX / Texture.Width;
-			var topRightV = topRightY / Texture.Height;
-			var bottomLeftU = bottomLeftX / Texture.Width;
-			var bottomLeftV = bottomLeftY / Texture.Height;
-			var bottomRightU = bottomRightX / Texture.Width;
-			var bottomRightV = bottomRightY / Texture.Height;
-
-			var topLeftUV = new Vector2(topLeftU, topLeftV);
-			var topRightUV = new Vector2(topRightU, topRightV);
-			var bottomLeftUV = new Vector2(bottomLeftU, bottomLeftV);
-			var bottomRightUV = new Vector2(bottomRightU, bottomRightV);
-
-			return new UVRect
-			{
-				TopLeft = topLeftUV,
-				TopRight = topRightUV,
-				BottomLeft = bottomLeftUV,
-				BottomRight = bottomRightUV
-			};
+		[NotNull]
+		IEnumerator IEnumerable.GetEnumerator()
+		{
+			return GetEnumerator();
 		}
 	}
 }

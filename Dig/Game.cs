@@ -85,8 +85,7 @@ namespace Dig
 		private readonly ConstantBuffer<PerFrame> _perFrameBuffer;
 		private readonly D3D11Buffer[] _cbuffers;
 		private readonly D3D11RasterizerState2 _rsWireframe;
-		private readonly GPUTexture2D _atlasTexture;
-		private readonly TextureAtlas _atlas;
+		private readonly TextureAtlas _blocksAtlas;
 		private readonly D3D11SamplerState _tsCube;
 
 		private double _rotation;
@@ -99,13 +98,12 @@ namespace Dig
 			_unlit = new Material(dx, "Unlit");
 			_unlit.DebugName = $"{nameof(Game)}.{nameof(_unlit)}";
 
-			_atlasTexture = GPUTexture2D.Load(dx, "Assets/Temp/texture-atlas.dds");
-			_atlasTexture.DebugName = $"{nameof(Game)}.{nameof(_atlasTexture)}";
-			_atlas = new TextureAtlas(_atlasTexture, 16, 16);
+			_blocksAtlas = TextureAtlas.Load(dx, "Assets/Atlases/Blocks");
+			_blocksAtlas.DebugName = $"{nameof(Game)}.{nameof(_blocksAtlas)}";
 
-			var dirt = _atlas[5];
-			var sand = _atlas[4];
-			var stone = _atlas[3];
+			var dirt = _blocksAtlas["dirt"];
+			var sand = _blocksAtlas["sand"];
+			var stone = _blocksAtlas["stone"];
 
 			var dirtCube = MeshBuilder.Cube(dirt, dirt, dirt);
 			var stoneCube = MeshBuilder.Cube(stone, stone, stone);
@@ -193,7 +191,7 @@ namespace Dig
 		{
 			_rsWireframe.Dispose();
 			_tsCube.Dispose();
-			_atlasTexture.Dispose();
+			_blocksAtlas.Dispose();
 			_indexBuffer.Dispose();
 			_vertexBuffer.Dispose();
 			_rsWireframe.Dispose();
@@ -251,7 +249,7 @@ namespace Dig
 
 			ps.Set(_unlit.PixelShader.Shader);
 			ps.SetSampler(0, _tsCube);
-			ps.SetShaderResource(0, _atlasTexture.View);
+			ps.SetShaderResource(0, _blocksAtlas.View);
 
 			// rs.State = _rsWireframe;
 
